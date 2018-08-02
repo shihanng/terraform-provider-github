@@ -43,6 +43,7 @@ func Provider() terraform.ResourceProvider {
 			"github_repository_collaborator": resourceGithubRepositoryCollaborator(),
 			"github_issue_label":             resourceGithubIssueLabel(),
 			"github_branch_protection":       resourceGithubBranchProtection(),
+			"github_organization_project":    resourceGithubOrganizationProject(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
