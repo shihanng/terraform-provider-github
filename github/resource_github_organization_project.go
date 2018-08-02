@@ -12,18 +12,17 @@ func resourceGithubOrganizationProject() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceGithubOrganizationProjectCreate,
 		Read:   resourceGithubOrganizationProjectRead,
+		Update: resourceGithubOrganizationProjectUpdate,
 		Delete: resourceGithubOrganizationProjectDelete,
 
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
-				ForceNew: true,
 			},
 			"body": {
 				Type:     schema.TypeString,
 				Optional: true,
-				ForceNew: true,
 			},
 		},
 	}
@@ -46,7 +45,7 @@ func resourceGithubOrganizationProjectCreate(d *schema.ResourceData, meta interf
 	}
 	d.SetId(strconv.FormatInt(*project.ID, 10))
 
-	return nil
+	return resourceGithubOrganizationProjectRead(d, meta)
 }
 
 func resourceGithubOrganizationProjectRead(d *schema.ResourceData, meta interface{}) error {
@@ -70,6 +69,28 @@ func resourceGithubOrganizationProjectRead(d *schema.ResourceData, meta interfac
 	d.Set("body", project.GetBody())
 
 	return nil
+}
+
+func resourceGithubOrganizationProjectUpdate(d *schema.ResourceData, meta interface{}) error {
+	client := meta.(*Organization).client
+	n := d.Get("name").(string)
+	b := d.Get("body").(string)
+
+	options := github.ProjectOptions{
+		Name: n,
+		Body: b,
+	}
+
+	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	if _, _, err := client.Projects.UpdateProject(context.TODO(), projectID, &options); err != nil {
+		return err
+	}
+
+	return resourceGithubOrganizationProjectRead(d, meta)
 }
 
 func resourceGithubOrganizationProjectDelete(d *schema.ResourceData, meta interface{}) error {
