@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/google/go-github/github"
@@ -23,6 +24,10 @@ func resourceGithubOrganizationProject() *schema.Resource {
 			"body": {
 				Type:     schema.TypeString,
 				Optional: true,
+			},
+			"url": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
@@ -50,6 +55,7 @@ func resourceGithubOrganizationProjectCreate(d *schema.ResourceData, meta interf
 
 func resourceGithubOrganizationProjectRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
+	o := meta.(*Organization).name
 
 	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
 	if err != nil {
@@ -67,6 +73,7 @@ func resourceGithubOrganizationProjectRead(d *schema.ResourceData, meta interfac
 
 	d.Set("name", project.GetName())
 	d.Set("body", project.GetBody())
+	d.Set("url", fmt.Sprintf("https://github.com/orgs/%s/projects/%d", o, project.GetNumber()))
 
 	return nil
 }
