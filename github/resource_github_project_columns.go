@@ -64,6 +64,7 @@ func resourceGithubProjectColumnsCreate(d *schema.ResourceData, meta interface{}
 	if err != nil {
 		return err
 	}
+
 	if len(projectColumns) > 0 {
 		return errors.New("Refuse to create new columns as project alreadys contains columns. Use import if you want to update.")
 	}
@@ -84,6 +85,11 @@ func resourceGithubProjectColumnsCreate(d *schema.ResourceData, meta interface{}
 	d.SetId(strconv.FormatInt(*project.ID, 10))
 
 	return resourceGithubProjectColumnsRead(d, meta)
+}
+
+func expandProjectColumns(d *schema.ResourceData) ([]github.ProjectColumnOptions, error) {
+	if v, ok := d.GetOk("columns"); ok {
+	}
 }
 
 func resourceGithubProjectColumnsRead(d *schema.ResourceData, meta interface{}) error {
