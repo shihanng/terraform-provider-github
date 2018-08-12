@@ -69,27 +69,46 @@ func resourceGithubProjectColumnsCreate(d *schema.ResourceData, meta interface{}
 		return errors.New("Refuse to create new columns as project alreadys contains columns. Use import if you want to update.")
 	}
 
-	options := github.ProjectOptions{
-		Name: d.Get("name").(string),
-		Body: d.Get("body").(string),
-	}
-
-	project, _, err := client.Repositories.CreateProject(context.TODO(),
-		meta.(*Organization).name,
-		d.Get("repository").(string),
-		&options,
-	)
+	opts, err := expandProjectColumns(d)
 	if err != nil {
 		return err
 	}
-	d.SetId(strconv.FormatInt(*project.ID, 10))
+
+	for _, opt := range opts {
+		column, _, err := client.Projects.CreateProjectColumn(context.TODO(), projectID, opt)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	d.SetId(strconv.FormatInt(projectID, 10))
 
 	return resourceGithubProjectColumnsRead(d, meta)
 }
 
 func expandProjectColumns(d *schema.ResourceData) ([]github.ProjectColumnOptions, error) {
-	if v, ok := d.GetOk("columns"); ok {
+	v, ok := d.GetOk("columns")
+	if !ok {
+		return nil, nil
 	}
+
+	columnList, ok := v.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	var opts []github.ProjectColumnOptions
+
+	for _, cl := range columnList {
+		m := cl.(map[string]interface{})
+
+		opts = append(opts, github.ProjectColumnOptions{
+			Name: m["name"].(string),
+		})
+	}
+
+	return opts, nil
 }
 
 func resourceGithubProjectColumnsRead(d *schema.ResourceData, meta interface{}) error {
