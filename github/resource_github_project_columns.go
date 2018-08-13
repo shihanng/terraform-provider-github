@@ -75,11 +75,10 @@ func resourceGithubProjectColumnsCreate(d *schema.ResourceData, meta interface{}
 	}
 
 	for _, opt := range opts {
-		column, _, err := client.Projects.CreateProjectColumn(context.TODO(), projectID, opt)
+		_, _, err := client.Projects.CreateProjectColumn(context.TODO(), projectID, &opt)
 		if err != nil {
 			return err
 		}
-
 	}
 
 	d.SetId(strconv.FormatInt(projectID, 10))
@@ -113,28 +112,55 @@ func expandProjectColumns(d *schema.ResourceData) ([]github.ProjectColumnOptions
 
 func resourceGithubProjectColumnsRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
-	orgName := meta.(*Organization).name
 
 	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
 	if err != nil {
 		return unconvertibleIdErr(d.Id(), err)
 	}
 
-	project, resp, err := client.Projects.GetProject(context.TODO(), projectID)
-	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
-			d.SetId("")
-			return nil
+	opt := &github.ListOptions{PerPage: 10}
+	var allColumns []*github.ProjectColumn
+
+	for {
+		projectColumns, resp, err := client.Projects.ListProjectColumns(context.TODO(), projectID, opt)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				d.SetId("")
+				return nil
+			}
+			return err
 		}
-		return err
+
+		allColumns = append(allColumns, projectColumns...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
 	}
 
-	d.Set("name", project.GetName())
-	d.Set("body", project.GetBody())
-	d.Set("url", fmt.Sprintf("https://github.com/%s/%s/projects/%d",
-		orgName, d.Get("repository"), project.GetNumber()))
+	d.Set("project_id", projectID)
+	if err := flattenAndSetProjectColumns(d, allColumns); err != nil {
+		return fmt.Errorf("Error setting columns: %v", err)
+	}
 
 	return nil
+}
+
+func flattenAndSetProjectColumns(d *schema.ResourceData, projectColumns []*github.ProjectColumn) error {
+	if projectColumns == nil {
+		return d.Set("columns", []interface{}{})
+	}
+
+	columns := make([]interface{}, 0, len(projectColumns))
+	for _, c := range projectColumns {
+		v := map[string]interface{}{
+			"name": c.GetName(),
+			"id":   c.GetID(),
+		}
+		columns = append(columns, v)
+	}
+
+	return d.Set("columns", columns)
 }
 
 func resourceGithubProjectColumnsUpdate(d *schema.ResourceData, meta interface{}) error {
