@@ -14,7 +14,7 @@ func resourceGithubProjectColumns() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceGithubProjectColumnsCreate,
 		Read:   resourceGithubProjectColumnsRead,
-		Update: resourceGithubProjectColumnsUpdate,
+		// Update: resourceGithubProjectColumnsUpdate,
 		Delete: resourceGithubProjectColumnsDelete,
 		// Importer: &schema.ResourceImporter{
 		// 	State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
@@ -32,18 +32,20 @@ func resourceGithubProjectColumns() *schema.Resource {
 			"project_id": {
 				Type:     schema.TypeInt,
 				Required: true,
+				ForceNew: true,
 			},
 			"columns": {
-				Type: schema.TypeList,
+				Type:     schema.TypeList,
+				ForceNew: true,
+				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
 							Type:     schema.TypeString,
 							Required: true,
-							Default:  false,
 						},
 						"id": {
-							Type:     schema.TypeString,
+							Type:     schema.TypeInt,
 							Computed: true,
 						},
 					},
@@ -56,7 +58,7 @@ func resourceGithubProjectColumns() *schema.Resource {
 func resourceGithubProjectColumnsCreate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
 
-	projectID := d.Get("project_id").(int64)
+	projectID := int64(d.Get("project_id").(int))
 
 	opt := &github.ListOptions{PerPage: 10}
 
@@ -187,11 +189,39 @@ func resourceGithubProjectColumnsUpdate(d *schema.ResourceData, meta interface{}
 func resourceGithubProjectColumnsDelete(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
 
-	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
+	ids, err := expandProjectColumnIDs(d)
 	if err != nil {
-		return unconvertibleIdErr(d.Id(), err)
+		return err
 	}
 
-	_, err = client.Projects.DeleteProject(context.TODO(), projectID)
-	return err
+	for _, id := range ids {
+		_, err = client.Projects.DeleteProjectColumn(context.TODO(), id)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func expandProjectColumnIDs(d *schema.ResourceData) ([]int64, error) {
+	v, ok := d.GetOk("columns")
+	if !ok {
+		return nil, nil
+	}
+
+	columnList, ok := v.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	var ids []int64
+
+	for _, cl := range columnList {
+		m := cl.(map[string]interface{})
+
+		ids = append(ids, m["id"].(int64))
+	}
+
+	return ids, nil
 }
