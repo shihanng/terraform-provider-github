@@ -220,7 +220,7 @@ func expandProjectColumnIDs(d *schema.ResourceData) ([]int64, error) {
 	for _, cl := range columnList {
 		m := cl.(map[string]interface{})
 
-		ids = append(ids, m["id"].(int64))
+		ids = append(ids, int64(m["id"].(int)))
 	}
 
 	return ids, nil
