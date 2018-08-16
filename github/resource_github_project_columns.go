@@ -14,7 +14,7 @@ func resourceGithubProjectColumns() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceGithubProjectColumnsCreate,
 		Read:   resourceGithubProjectColumnsRead,
-		// Update: resourceGithubProjectColumnsUpdate,
+		Update: resourceGithubProjectColumnsUpdate,
 		Delete: resourceGithubProjectColumnsDelete,
 		// Importer: &schema.ResourceImporter{
 		// 	State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
