@@ -32,11 +32,9 @@ func resourceGithubProjectColumns() *schema.Resource {
 			"project_id": {
 				Type:     schema.TypeInt,
 				Required: true,
-				ForceNew: true,
 			},
 			"columns": {
 				Type:     schema.TypeList,
-				ForceNew: true,
 				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -112,6 +110,38 @@ func expandProjectColumns(d *schema.ResourceData) ([]github.ProjectColumnOptions
 	return opts, nil
 }
 
+type projectColumn struct {
+	loc  int
+	ID   int64
+	Name string
+}
+
+func expandProjectColumns2(d *schema.ResourceData) ([]projectColumn, error) {
+	v, ok := d.GetOk("columns")
+	if !ok {
+		return nil, nil
+	}
+
+	columnList, ok := v.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	var pc []projectColumn
+
+	for i, cl := range columnList {
+		m := cl.(map[string]interface{})
+
+		pc = append(pc, projectColumn{
+			Name: m["name"].(string),
+			ID:   int64(m["id"].(int)),
+			loc:  i,
+		})
+	}
+
+	return pc, nil
+}
+
 func resourceGithubProjectColumnsRead(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
 
@@ -165,22 +195,118 @@ func flattenAndSetProjectColumns(d *schema.ResourceData, projectColumns []*githu
 	return d.Set("columns", columns)
 }
 
+func makeMap(original []*github.ProjectColumn) map[int64]projectColumn {
+	out := make(map[int64]projectColumn, len(original))
+
+	for i, o := range original {
+		out[o.GetID()] = projectColumn{
+			ID:   o.GetID(),
+			Name: o.GetName(),
+			loc:  i,
+		}
+	}
+
+	return out
+}
+
 func resourceGithubProjectColumnsUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*Organization).client
 
-	options := github.ProjectOptions{
-		Name: d.Get("name").(string),
-		Body: d.Get("body").(string),
-	}
+	projectID := int64(d.Get("project_id").(int))
 
-	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
-	if err != nil {
-		return unconvertibleIdErr(d.Id(), err)
-	}
+	opt := &github.ListOptions{PerPage: 10}
 
-	_, _, err = client.Projects.UpdateProject(context.TODO(), projectID, &options)
+	projectColumns, _, err := client.Projects.ListProjectColumns(context.TODO(), projectID, opt)
 	if err != nil {
 		return err
+	}
+
+	pc, err := expandProjectColumns2(d)
+	if err != nil {
+		return err
+	}
+
+	dest := makeMap(projectColumns)
+
+	newIDs := make([]int64, 0, len(pc))
+
+	for i, c := range pc {
+		d, ok := dest[c.ID]
+		if !ok {
+			opt := github.ProjectColumnOptions{
+				Name: c.Name,
+			}
+
+			column, _, err := client.Projects.CreateProjectColumn(context.TODO(), projectID, &opt)
+			if err != nil {
+				return err
+			}
+
+			newIDs = append(newIDs, column.GetID())
+
+			var position string
+			switch i {
+			case 0:
+				position = "first"
+			case len(pc) - 1:
+				position = "last"
+			default:
+				position = fmt.Sprintf("after:%d", newIDs[i-1])
+			}
+
+			mopt := github.ProjectColumnMoveOptions{
+				Position: position,
+			}
+
+			_, err = client.Projects.MoveProjectColumn(context.TODO(), column.GetID(), &mopt)
+			if err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		newIDs = append(newIDs, c.ID)
+		delete(dest, c.ID)
+
+		if c == d {
+			continue
+		}
+
+		opt := github.ProjectColumnOptions{
+			Name: c.Name,
+		}
+
+		_, _, err := client.Projects.UpdateProjectColumn(context.TODO(), projectID, &opt)
+		if err != nil {
+			return err
+		}
+
+		var position string
+		switch i {
+		case 0:
+			position = "first"
+		case len(pc) - 1:
+			position = "last"
+		default:
+			position = fmt.Sprintf("after:%d", newIDs[i-1])
+		}
+
+		mopt := github.ProjectColumnMoveOptions{
+			Position: position,
+		}
+
+		_, err = client.Projects.MoveProjectColumn(context.TODO(), c.ID, &mopt)
+		if err != nil {
+			return err
+		}
+	}
+
+	for k := range dest {
+		_, err := client.Projects.DeleteProjectColumn(context.TODO(), k)
+		if err != nil {
+			return err
+		}
 	}
 
 	return resourceGithubProjectColumnsRead(d, meta)
