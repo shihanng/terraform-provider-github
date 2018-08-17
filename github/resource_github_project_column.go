@@ -2,6 +2,8 @@ package github
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -46,8 +48,24 @@ func resourceGithubProjectColumn() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"position": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateGithubProjectColumnPosition,
+			},
 		},
 	}
+}
+
+func validateGithubProjectColumnPosition(v interface{}, k string) (ws []string, errors []error) {
+	position := v.(string)
+
+	if position == "first" || position == "last" || strings.HasPrefix(position, "after:") {
+		return
+	}
+
+	errors = append(errors, fmt.Errorf("Github: %s can only be one of 'first', 'last', or 'after:<column_id>'", k))
+	return
 }
 
 func resourceGithubProjectColumnCreate(d *schema.ResourceData, meta interface{}) error {
@@ -70,7 +88,20 @@ func resourceGithubProjectColumnCreate(d *schema.ResourceData, meta interface{})
 	if err != nil {
 		return err
 	}
-	d.SetId(strconv.FormatInt(*column.ID, 10))
+
+	columnID := *column.ID
+	d.SetId(strconv.FormatInt(columnID, 10))
+
+	if position := d.Get("position").(string); position != "" {
+		options := github.ProjectColumnMoveOptions{
+			Position: position,
+		}
+
+		_, err = client.Projects.MoveProjectColumn(context.TODO(), columnID, &options)
+		if err != nil {
+			return err
+		}
+	}
 
 	return resourceGithubProjectColumnRead(d, meta)
 }
@@ -83,9 +114,15 @@ func resourceGithubProjectColumnRead(d *schema.ResourceData, meta interface{}) e
 		return unconvertibleIdErr(d.Id(), err)
 	}
 
-	column, resp, err := client.Projects.GetProjectColumn(context.TODO(), columnID)
+	projectIDStr := d.Get("project_id").(string)
+	projectID, err := strconv.ParseInt(projectIDStr, 10, 64)
 	if err != nil {
-		if resp != nil && resp.StatusCode == 404 {
+		return unconvertibleIdErr(projectIDStr, err)
+	}
+
+	column, position, err := getProjectColumn(client.Projects, projectID, columnID)
+	if err != nil {
+		if err == errProjectColumnNotFound {
 			d.SetId("")
 			return nil
 		}
@@ -93,8 +130,62 @@ func resourceGithubProjectColumnRead(d *schema.ResourceData, meta interface{}) e
 	}
 
 	d.Set("name", column.GetName())
+	d.Set("position", position)
 
 	return nil
+}
+
+var errProjectColumnNotFound = errors.New("not found")
+
+type projectColumnsLister interface {
+	ListProjectColumns(context.Context, int64, *github.ListOptions) ([]*github.ProjectColumn, *github.Response, error)
+}
+
+func getProjectColumn(lister projectColumnsLister, projectID, columnID int64) (*github.ProjectColumn, string, error) {
+	listOptions := &github.ListOptions{PerPage: 10}
+
+	var projectColumns []*github.ProjectColumn
+
+	for {
+		columns, resp, err := lister.ListProjectColumns(context.TODO(), projectID, listOptions)
+		if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				return nil, "", errProjectColumnNotFound
+			}
+			return nil, "", err
+		}
+
+		for i, c := range columns {
+			if c.GetID() != columnID {
+				continue
+			}
+
+			// Computing the position of the found column.
+			l := len(projectColumns)
+			if l == 0 {
+				return c, "first", nil
+			}
+
+			if resp.NextPage != 0 {
+				return c, fmt.Sprintf("after:%d", projectColumns[l-1].GetID()), nil
+			}
+
+			if len(columns)-1 == i {
+				return c, "last", nil
+			}
+
+			return c, fmt.Sprintf("after:%d", projectColumns[l-1].GetID()), nil
+		}
+
+		projectColumns = append(projectColumns, columns...)
+		if resp.NextPage == 0 {
+			break
+		}
+
+		listOptions.Page = resp.NextPage
+	}
+
+	return nil, "", errProjectColumnNotFound
 }
 
 func resourceGithubProjectColumnUpdate(d *schema.ResourceData, meta interface{}) error {
@@ -112,6 +203,17 @@ func resourceGithubProjectColumnUpdate(d *schema.ResourceData, meta interface{})
 	_, _, err = client.Projects.UpdateProjectColumn(context.TODO(), columnID, &options)
 	if err != nil {
 		return err
+	}
+
+	if position := d.Get("position").(string); position != "" {
+		options := github.ProjectColumnMoveOptions{
+			Position: position,
+		}
+
+		_, err = client.Projects.MoveProjectColumn(context.TODO(), columnID, &options)
+		if err != nil {
+			return err
+		}
 	}
 
 	return resourceGithubProjectColumnRead(d, meta)

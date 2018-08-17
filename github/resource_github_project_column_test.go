@@ -146,7 +146,29 @@ resource "github_repository_project" "test" {
 resource "github_project_column" "column_1" {
   project_id = "${github_repository_project.test.id}"
   name       = "column-1"
+  position   = "first"
 }
 
 `, repoName)
+}
+
+func TestValidateGithubProjectColumnPosition(t *testing.T) {
+	inputs := []string{
+		"first",
+		"last",
+		"after:abc",
+		"after:123",
+		"after:",
+	}
+
+	for _, in := range inputs {
+		_, err := validateGithubProjectColumnPosition(in, "position")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := validateGithubProjectColumnPosition("first:", "position"); err == nil {
+		t.Fatal("Expected error, actual: nil")
+	}
 }
