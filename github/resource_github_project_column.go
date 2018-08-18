@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -18,12 +17,22 @@ func resourceGithubProjectColumn() *schema.Resource {
 		Delete: resourceGithubProjectColumnDelete,
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-				parts := strings.Split(d.Id(), "/")
-				if len(parts) != 2 {
-					return nil, fmt.Errorf("Invalid ID specified. Supplied ID must be written as <repository>/<project_id>")
+				client := meta.(*Organization).client
+
+				columnID, err := strconv.ParseInt(d.Id(), 10, 64)
+				if err != nil {
+					return nil, unconvertibleIdErr(d.Id(), err)
 				}
-				d.Set("repository", parts[0])
-				d.SetId(parts[1])
+
+				column, _, err := client.Projects.GetProjectColumn(context.TODO(), columnID)
+				if err != nil {
+					return nil, err
+				}
+
+				projectURL := column.GetProjectURL()
+				projectID := strings.TrimPrefix(projectURL, "https://api.github.com/projects/")
+
+				d.Set("project_id", projectID)
 				return []*schema.ResourceData{d}, nil
 			},
 		},
