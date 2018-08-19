@@ -172,3 +172,72 @@ func TestValidateGithubProjectColumnPosition(t *testing.T) {
 		t.Fatal("Expected error, actual: nil")
 	}
 }
+
+type testLister struct {
+	columns []*github.ProjectColumn
+}
+
+// ListProjectColumns return the list of columns that has only max of two entries for testing purpose.
+func (l *testLister) ListProjectColumns(_ context.Context, _ int64, opts *github.ListOptions) ([]*github.ProjectColumn, *github.Response, error) {
+	next := opts.Page + 2
+
+	if next >= len(l.columns) {
+		return l.columns[opts.Page:], &github.Response{NextPage: 0}, nil
+	}
+
+	return l.columns[opts.Page:next], &github.Response{NextPage: next}, nil
+}
+
+func TestGetProjectColumnPosition(t *testing.T) {
+	var projectID int64 = 1234
+
+	lister := &testLister{
+		columns: []*github.ProjectColumn{
+			{ID: github.Int64(0), Name: github.String("first column")},
+		},
+	}
+
+	_, got, err := getProjectColumn(lister, projectID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want := "first"; got != want {
+		t.Fatalf("got project column position %q; want %q", got, want)
+	}
+
+	if _, _, err := getProjectColumn(lister, projectID, 1); err != errProjectColumnNotFound {
+		t.Fatalf("Expected error: %v, actual: %v", errProjectColumnNotFound, err)
+	}
+}
+
+func TestGetProjectColumnPositions(t *testing.T) {
+	var projectID int64 = 1234
+
+	lister := &testLister{
+		columns: []*github.ProjectColumn{
+			{ID: github.Int64(0), Name: github.String("first column")},
+			{ID: github.Int64(1), Name: github.String("second column")},
+			{ID: github.Int64(2), Name: github.String("third column")},
+			{ID: github.Int64(3), Name: github.String("forth column")},
+		},
+	}
+
+	wantPositions := []string{
+		"first",
+		"after:0",
+		"after:1",
+		"last",
+	}
+
+	for columnID, want := range wantPositions {
+		_, got, err := getProjectColumn(lister, projectID, int64(columnID))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got != want {
+			t.Fatalf("got project column position %q; want %q", got, want)
+		}
+	}
+}
