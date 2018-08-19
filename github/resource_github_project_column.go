@@ -142,7 +142,7 @@ type projectColumnsLister interface {
 }
 
 func getProjectColumn(lister projectColumnsLister, projectID, columnID int64) (*github.ProjectColumn, string, error) {
-	listOptions := &github.ListOptions{PerPage: 10}
+	listOptions := &github.ListOptions{PerPage: maxPerPage}
 
 	var projectColumns []*github.ProjectColumn
 
