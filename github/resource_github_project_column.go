@@ -156,28 +156,29 @@ func getProjectColumn(lister projectColumnsLister, projectID, columnID int64) (*
 		}
 
 		for i, c := range columns {
+			projectColumns = append(projectColumns, c)
+
 			if c.GetID() != columnID {
 				continue
 			}
 
 			// Computing the position of the found column.
 			l := len(projectColumns)
-			if l == 0 {
-				return c, "first", nil
+			before := l - 2
+
+			var position string
+			switch {
+			case l == 1:
+				position = "first"
+			case resp.NextPage == 0 && len(columns)-1 == i:
+				position = "last"
+			default:
+				position = fmt.Sprintf("after:%d", projectColumns[before].GetID())
 			}
 
-			if resp.NextPage != 0 {
-				return c, fmt.Sprintf("after:%d", projectColumns[l-1].GetID()), nil
-			}
-
-			if len(columns)-1 == i {
-				return c, "last", nil
-			}
-
-			return c, fmt.Sprintf("after:%d", projectColumns[l-1].GetID()), nil
+			return c, position, nil
 		}
 
-		projectColumns = append(projectColumns, columns...)
 		if resp.NextPage == 0 {
 			break
 		}
