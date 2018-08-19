@@ -24,9 +24,17 @@ func TestAccGithubProjectColumn_basic(t *testing.T) {
 			{
 				Config: testAccGithubProjectColumnConfig(randRepoName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckGithubProjectColumnExists("github_project_column.column_1", &column),
+					testAccCheckGithubProjectColumnExists("github_project_column.column_first", &column),
 					testAccCheckGithubProjectColumnAttributes(&column, &testAccGithubProjectColumnExpectedAttributes{
-						Name: "column-1",
+						Name: "first column",
+					}),
+					testAccCheckGithubProjectColumnExists("github_project_column.column_second", &column),
+					testAccCheckGithubProjectColumnAttributes(&column, &testAccGithubProjectColumnExpectedAttributes{
+						Name: "second column",
+					}),
+					testAccCheckGithubProjectColumnExists("github_project_column.column_last", &column),
+					testAccCheckGithubProjectColumnAttributes(&column, &testAccGithubProjectColumnExpectedAttributes{
+						Name: "last column",
 					}),
 				),
 			},
@@ -143,12 +151,25 @@ resource "github_repository_project" "test" {
   body       = "this is a test project"
 }
 
-resource "github_project_column" "column_1" {
+resource "github_project_column" "column_first" {
   project_id = "${github_repository_project.test.id}"
-  name       = "column-1"
+  name       = "first column"
   position   = "first"
 }
 
+resource "github_project_column" "column_second" {
+  project_id = "${github_repository_project.test.id}"
+  name       = "second column"
+  position   = "after:${github_project_column.column_first.id}"
+  depends_on = ["github_project_column.column_first"]
+}
+
+resource "github_project_column" "column_last" {
+  depends_on = ["github_project_column.column_second"]
+  project_id = "${github_repository_project.test.id}"
+  name       = "last column"
+  position   = "last"
+}
 `, repoName)
 }
 
