@@ -427,6 +427,7 @@ func expandRequiredPullRequestReviews(d *schema.ResourceData) (*github.PullReque
 			rprr.DismissalRestrictionsRequest = drr
 			rprr.DismissStaleReviews = m["dismiss_stale_reviews"].(bool)
 			rprr.RequireCodeOwnerReviews = m["require_code_owner_reviews"].(bool)
+			rprr.RequiredApprovingReviewCount = 1
 		}
 
 		return rprr, nil

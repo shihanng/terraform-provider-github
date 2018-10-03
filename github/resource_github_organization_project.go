@@ -52,8 +52,8 @@ func resourceGithubOrganizationProjectCreate(d *schema.ResourceData, meta interf
 	project, _, err := client.Organizations.CreateProject(ctx,
 		orgName,
 		&github.ProjectOptions{
-			Name: name,
-			Body: d.Get("body").(string),
+			Name: github.String(name),
+			Body: github.String(d.Get("body").(string)),
 		},
 	)
 	if err != nil {
@@ -109,8 +109,8 @@ func resourceGithubOrganizationProjectUpdate(d *schema.ResourceData, meta interf
 	orgName := meta.(*Organization).name
 	name := d.Get("name").(string)
 	options := github.ProjectOptions{
-		Name: name,
-		Body: d.Get("body").(string),
+		Name: github.String(name),
+		Body: github.String(d.Get("body").(string)),
 	}
 
 	projectID, err := strconv.ParseInt(d.Id(), 10, 64)
