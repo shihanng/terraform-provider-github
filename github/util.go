@@ -30,6 +30,18 @@ func validateValueFunc(values []string) schema.SchemaValidateFunc {
 	}
 }
 
+func validateRangeFunc(min, max int) schema.SchemaValidateFunc {
+	return func(v interface{}, k string) (we []string, errors []error) {
+		value := v.(int)
+
+		if value < min || value > max {
+			errors = append(errors, fmt.Errorf("%d is an invalid value for argument %s. Valid values are %d-%d", value, k, min, max))
+		}
+
+		return
+	}
+}
+
 // return the pieces of id `a:b` as a, b
 func parseTwoPartID(id string) (string, string, error) {
 	parts := strings.SplitN(id, ":", 2)
