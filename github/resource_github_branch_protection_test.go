@@ -39,6 +39,7 @@ func TestAccGithubBranchProtection_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismiss_stale_reviews", "true"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_users.#", "1"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_teams.#", "0"),
+					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.required_approving_review_count", "6"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.require_code_owner_reviews", "true"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.users.#", "1"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.teams.#", "0"),
@@ -93,6 +94,7 @@ func TestAccGithubBranchProtection_teams(t *testing.T) {
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismiss_stale_reviews", "true"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_users.#", "0"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_teams.#", "2"),
+					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.required_approving_review_count", "6"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.require_code_owner_reviews", "false"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.users.#", "0"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.teams.#", "2"),
@@ -126,6 +128,7 @@ func TestAccGithubBranchProtection_teams(t *testing.T) {
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismiss_stale_reviews", "true"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_users.#", "0"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.dismissal_teams.#", "2"),
+					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.required_approving_review_count", "6"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "required_pull_request_reviews.0.require_code_owner_reviews", "false"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.users.#", "0"),
 					resource.TestCheckResourceAttr("github_branch_protection.master", "restrictions.0.teams.#", "2"),
@@ -367,6 +370,7 @@ resource "github_branch_protection" "master" {
   required_pull_request_reviews {
     dismiss_stale_reviews = true
     dismissal_users = ["%s"]
+    required_approving_review_count = 6
     require_code_owner_reviews = true
   }
 
@@ -462,6 +466,7 @@ resource "github_branch_protection" "master" {
   required_pull_request_reviews {
     dismiss_stale_reviews = true
     dismissal_teams = ["${github_team.first.slug}", "${github_team.second.slug}"]
+    required_approving_review_count = 6
   }
 
   restrictions {
